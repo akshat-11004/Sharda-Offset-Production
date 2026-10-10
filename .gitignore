@@ -30,3 +30,5 @@ build/
 Thumbs.db
 sharda-offset-phase3/.env
 sharda-offset-phase3/.env
+.vercel
+.env*
