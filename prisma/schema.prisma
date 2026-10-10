@@ -1,0 +1,197 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  OWNER
+  CUSTOMER
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  QUOTATION_SENT
+  IN_PROGRESS
+  CONVERTED
+  CLOSED
+  NOT_INTERESTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
+}
+
+model Service {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String
+  shortText    String?
+  image        String?
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  enquiries Enquiry[]
+  samples   Sample[]
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  samples Sample[]
+}
+
+model Sample {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String
+  categoryId  String
+  serviceId   String
+  material    String?
+  size        String?
+  tags        String[]
+  isFeatured  Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category  Category      @relation(fields: [categoryId], references: [id])
+  service   Service       @relation(fields: [serviceId], references: [id])
+  images    SampleImage[]
+  enquiries Enquiry[]
+
+  @@index([categoryId])
+  @@index([serviceId])
+  @@index([isFeatured])
+  @@index([isActive])
+}
+
+model SampleImage {
+  id        String   @id @default(cuid())
+  sampleId  String
+  url       String
+  altText   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  sample Sample @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+
+  @@index([sampleId])
+}
+
+model Enquiry {
+  id               String        @id @default(cuid())
+  name             String
+  phone            String
+  email            String?
+  serviceId        String?
+  sampleId         String?
+  message          String
+  preferredContact String?
+  status           EnquiryStatus @default(NEW)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  service Service? @relation(fields: [serviceId], references: [id])
+  sample  Sample?  @relation(fields: [sampleId], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  event     String
+  path      String?
+  metadata  Json?
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@index([event])
+  @@index([createdAt])
+  @@index([sessionId])
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String
+  content   String
+  intent    String?
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  company   String?
+  content   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FAQ {
+  id           String   @id @default(cuid())
+  question     String
+  answer       String
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([displayOrder])
+}
+
+model SiteSetting {
+  id               String   @id @default(cuid())
+  businessName     String
+  logoUrl          String?
+  address          String
+  phonePrimary     String
+  phoneSecondary   String?
+  whatsapp         String
+  email            String
+  hours            String
+  whatsappMessage  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
