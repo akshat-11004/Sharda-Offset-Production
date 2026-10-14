@@ -1,17 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-type Category = {
-  id: string;
-  name: string;
-};
-
-type Service = {
-  id: string;
-  name: string;
-};
+type Category = { id: string; name: string };
+type Service = { id: string; name: string };
 
 type SampleImage = {
   id: string;
@@ -37,8 +30,8 @@ type Sample = {
 
 export default function SampleForm({
   sample,
-  categories,
-  services,
+  categories: initialCategories,
+  services: initialServices,
 }: {
   sample?: Sample;
   categories: Category[];
@@ -46,12 +39,17 @@ export default function SampleForm({
 }) {
   const router = useRouter();
 
+  const [categories, setCategories] = useState(initialCategories);
+  const [services, setServices] = useState(initialServices);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [optionsError, setOptionsError] = useState("");
+
   const [form, setForm] = useState({
     title: sample?.title ?? "",
     slug: sample?.slug ?? "",
     description: sample?.description ?? "",
-    categoryId: sample?.categoryId ?? categories[0]?.id ?? "",
-    serviceId: sample?.serviceId ?? services[0]?.id ?? "",
+    categoryId: sample?.categoryId ?? initialCategories[0]?.id ?? "",
+    serviceId: sample?.serviceId ?? initialServices[0]?.id ?? "",
     material: sample?.material ?? "",
     size: sample?.size ?? "",
     tags: sample?.tags?.join(", ") ?? "",
@@ -63,20 +61,78 @@ export default function SampleForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const refreshOptions = useCallback(async () => {
+    setLoadingOptions(true);
+    setOptionsError("");
+
+    try {
+      const [categoryResponse, serviceResponse] = await Promise.all([
+        fetch("/api/admin/categories", { cache: "no-store" }),
+        fetch("/api/admin/services", { cache: "no-store" }),
+      ]);
+
+      const [categoryData, serviceData] = await Promise.all([
+        categoryResponse.json(),
+        serviceResponse.json(),
+      ]);
+
+      if (!categoryResponse.ok || !categoryData.ok) {
+        throw new Error(categoryData.error || "Could not load categories.");
+      }
+
+      if (!serviceResponse.ok || !serviceData.ok) {
+        throw new Error(serviceData.error || "Could not load services.");
+      }
+
+      const nextCategories: Category[] = categoryData.categories;
+      const nextServices: Service[] = serviceData.services.filter(
+        (service: Service & { isActive?: boolean }) =>
+          service.isActive !== false,
+      );
+
+      setCategories(nextCategories);
+      setServices(nextServices);
+
+      setForm((previous) => ({
+        ...previous,
+        categoryId: nextCategories.some(
+          (item) => item.id === previous.categoryId,
+        )
+          ? previous.categoryId
+          : (nextCategories[0]?.id ?? ""),
+        serviceId: nextServices.some((item) => item.id === previous.serviceId)
+          ? previous.serviceId
+          : (nextServices[0]?.id ?? ""),
+      }));
+    } catch (err) {
+      setOptionsError(
+        err instanceof Error ? err.message : "Could not refresh options.",
+      );
+    } finally {
+      setLoadingOptions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshOptions();
+  }, [refreshOptions]);
+
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
-    setForm((previous) => ({
-      ...previous,
-      [key]: value,
-    }));
+    setForm((previous) => ({ ...previous, [key]: value }));
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-
     setSaving(true);
     setError("");
 
     try {
+      if (!form.categoryId || !form.serviceId) {
+        throw new Error(
+          "Please create a category and an active service first.",
+        );
+      }
+
       const imageUrls = form.imageUrls
         .split(/\n+/)
         .map((value) => value.trim())
@@ -86,9 +142,7 @@ export default function SampleForm({
         sample ? `/api/admin/samples/${sample.id}` : "/api/admin/samples",
         {
           method: sample ? "PATCH" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: form.title,
             slug: form.slug,
@@ -134,19 +188,38 @@ export default function SampleForm({
         </div>
       )}
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[#6e665f]">
+          Categories: {categories.length} · Active services: {services.length}
+        </p>
+        <button
+          type="button"
+          onClick={() => void refreshOptions()}
+          disabled={loadingOptions}
+          className="rounded-lg border border-black/15 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60"
+        >
+          {loadingOptions ? "Refreshing…" : "Refresh options"}
+        </button>
+      </div>
+
+      {optionsError && (
+        <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          {optionsError}
+        </div>
+      )}
+
       <div className="grid gap-5 md:grid-cols-2">
         <Field
           label="Title"
           value={form.title}
-          onChange={(value) => set("title", value)}
+          onChange={(v) => set("title", v)}
           required
           placeholder="Retail Promo Banner"
         />
-
         <Field
           label="Slug"
           value={form.slug}
-          onChange={(value) => set("slug", value)}
+          onChange={(v) => set("slug", v)}
           required
           placeholder="retail-promo-banner"
         />
@@ -154,30 +227,39 @@ export default function SampleForm({
         <Select
           label="Category"
           value={form.categoryId}
-          onChange={(value) => set("categoryId", value)}
-          options={categories.map((category) => [category.id, category.name])}
+          onChange={(v) => set("categoryId", v)}
+          options={categories.map((c) => [c.id, c.name])}
           required
         />
-
         <Select
           label="Service"
           value={form.serviceId}
-          onChange={(value) => set("serviceId", value)}
-          options={services.map((service) => [service.id, service.name])}
+          onChange={(v) => set("serviceId", v)}
+          options={services.map((s) => [s.id, s.name])}
           required
         />
+
+        {categories.length === 0 && (
+          <p className="text-sm text-red-700">
+            No categories found. Create a category, then refresh options.
+          </p>
+        )}
+        {services.length === 0 && (
+          <p className="text-sm text-red-700">
+            No active services found. Activate a service, then refresh options.
+          </p>
+        )}
 
         <Field
           label="Material"
           value={form.material}
-          onChange={(value) => set("material", value)}
+          onChange={(v) => set("material", v)}
           placeholder="300 GSM Art Card"
         />
-
         <Field
           label="Size"
           value={form.size}
-          onChange={(value) => set("size", value)}
+          onChange={(v) => set("size", v)}
           placeholder="24 × 36 inches"
         />
       </div>
@@ -193,7 +275,7 @@ export default function SampleForm({
       </label>
 
       <label className="block text-sm font-medium">
-        Image URLs
+        Image URLs{" "}
         <span className="ml-2 text-xs font-normal text-[#6e665f]">
           Optional — one URL per line
         </span>
@@ -201,8 +283,9 @@ export default function SampleForm({
           value={form.imageUrls}
           onChange={(e) => set("imageUrls", e.target.value)}
           className="mt-2 min-h-28 w-full rounded-xl border border-black/10 px-3 py-2 outline-none focus:ring-2 focus:ring-[#7a1f2b]/20"
-          placeholder={`https://example.com/image-1.jpg
-https://example.com/image-2.jpg`}
+          placeholder={
+            "https://example.com/image-1.jpg\nhttps://example.com/image-2.jpg"
+          }
         />
         <p className="mt-1 text-xs text-[#6e665f]">
           You can add one or multiple image URLs.
@@ -212,7 +295,7 @@ https://example.com/image-2.jpg`}
       <Field
         label="Tags"
         value={form.tags}
-        onChange={(value) => set("tags", value)}
+        onChange={(v) => set("tags", v)}
         placeholder="banner, retail, large-format"
       />
 
@@ -220,19 +303,23 @@ https://example.com/image-2.jpg`}
         <Toggle
           label="Featured"
           checked={form.featured}
-          onChange={(value) => set("featured", value)}
+          onChange={(v) => set("featured", v)}
         />
-
         <Toggle
           label="Active / visible"
           checked={form.active}
-          onChange={(value) => set("active", value)}
+          onChange={(v) => set("active", v)}
         />
       </div>
 
       <button
         type="submit"
-        disabled={saving}
+        disabled={
+          saving ||
+          loadingOptions ||
+          categories.length === 0 ||
+          services.length === 0
+        }
         className="rounded-xl bg-[#7a1f2b] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
       >
         {saving ? "Saving…" : sample ? "Save changes" : "Create sample"}
@@ -258,7 +345,6 @@ function Field({
     <label className="block text-sm font-medium">
       {label}
       {required && <span className="ml-1 text-red-600">*</span>}
-
       <input
         required={required}
         value={value}
@@ -287,13 +373,13 @@ function Select({
     <label className="block text-sm font-medium">
       {label}
       {required && <span className="ml-1 text-red-600">*</span>}
-
       <select
         required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="mt-2 w-full rounded-xl border border-black/10 px-3 py-2.5"
       >
+        <option value="">Select {label.toLowerCase()}</option>
         {options.map(([id, name]) => (
           <option key={id} value={id}>
             {name}
