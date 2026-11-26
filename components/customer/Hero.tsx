@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDown, ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight, Phone } from "lucide-react";
 
 type HeroSample = {
   slug: string;
@@ -8,7 +8,13 @@ type HeroSample = {
   images: { url: string; altText?: string | null }[];
 };
 
-export function Hero({ samples }: { samples: HeroSample[] }) {
+export function Hero({
+  samples,
+  phone,
+}: {
+  samples: HeroSample[];
+  phone: string;
+}) {
   const visibleSamples = samples.slice(0, 3);
   return (
     <section className="showroom-hero" aria-labelledby="hero-heading">
@@ -41,12 +47,12 @@ export function Hero({ samples }: { samples: HeroSample[] }) {
             >
               Explore Products <ArrowRight size={17} />
             </Link>
-            <Link
-              href="/samples"
-              className="focus-ring inline-flex min-h-12 items-center rounded-full border border-[var(--border)] bg-white/75 px-5 text-sm font-semibold backdrop-blur-sm"
+            <a
+              href={`tel:${phone.replace(/\s/g, "")}`}
+              className="focus-ring inline-flex min-h-12 items-center gap-2 rounded-full border border-[var(--border)] bg-white/75 px-5 text-sm font-semibold backdrop-blur-sm"
             >
-              View samples
-            </Link>
+              <Phone size={17} /> Call us
+            </a>
           </div>
         </div>
         <div className="hero-sample-row" aria-label="Featured printing samples">

@@ -66,7 +66,7 @@ export default async function Home() {
   const whatsappHref = `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(settings.whatsappMessage || "Hello, I would like to enquire about printing.")}`;
   return (
     <main>
-      <Hero samples={heroSamples} />
+      <Hero samples={heroSamples} phone={settings.phonePrimary} />
       <section className="border-y border-[var(--border)] bg-white py-5">
         <div className="container-shell grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
           <div>
