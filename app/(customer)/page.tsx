@@ -11,7 +11,6 @@ import {
 import { Hero } from "@/components/customer/Hero";
 import { ServiceGrid } from "@/components/customer/ServiceGrid";
 import { SampleCard } from "@/components/customer/SampleCard";
-import { SampleGallery } from "@/components/customer/SampleGallery";
 import { EnquiryCta } from "@/components/customer/EnquiryCta";
 import { getSiteSettings } from "@/lib/site-settings";
 import { prisma } from "@/lib/prisma";
@@ -19,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [featured, latest, allSamples, serviceRecords, settings] =
+  const [featured, latest, serviceRecords, settings] =
     await Promise.all([
       prisma.sample.findMany({
         where: { isActive: true, isFeatured: true },
@@ -41,22 +40,12 @@ export default async function Home() {
         orderBy: { createdAt: "desc" },
         take: 8,
       }),
-      prisma.sample.findMany({
-        where: { isActive: true },
-        include: {
-          category: true,
-          service: true,
-          images: { orderBy: { sortOrder: "asc" } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 30,
-      }),
       prisma.service.findMany({
         where: { isActive: true },
         orderBy: { displayOrder: "asc" },
         include: {
           samples: {
-            where: { isActive: true },
+            where: { isActive: true, images: { some: {} } },
             orderBy: { createdAt: "desc" },
             take: 1,
             include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
@@ -69,9 +58,7 @@ export default async function Home() {
   const categories = serviceRecords.map((service) => ({
     name: service.name,
     slug: service.slug,
-    image:
-      service.samples[0]?.images[0] ||
-      (service.image ? { url: service.image, altText: service.name } : null),
+    image: service.samples[0]?.images[0] || null,
   }));
   const latestUnique = latest.filter(
     (sample) => !featured.some((item) => item.id === sample.id),
@@ -139,20 +126,6 @@ export default async function Home() {
           </div>
         </section>
       )}
-      <section className="py-16 sm:py-20 lg:py-28">
-        <div className="container-shell">
-          <div className="max-w-xl">
-            <p className="eyebrow">Browse collections</p>
-            <h2 className="display mt-3 text-4xl sm:text-5xl">
-              Find the feeling you want to print.
-            </h2>
-            <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-              Browse real samples by category, or search for a starting point.
-            </p>
-          </div>
-        </div>
-        <SampleGallery samples={allSamples} />
-      </section>
       {latestUnique.length > 0 && (
         <section className="overflow-hidden border-y border-[var(--border)] bg-[var(--surface)] py-16 sm:py-20">
           <div className="container-shell">
