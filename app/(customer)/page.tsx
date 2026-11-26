@@ -1,4 +1,3 @@
-import { getSiteSettings } from "@/lib/site-settings";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -9,263 +8,252 @@ import {
   Phone,
   Sparkles,
 } from "lucide-react";
-// import Navbar from "@/components/customer/Navbar";
 import { Hero } from "@/components/customer/Hero";
 import { ServiceGrid } from "@/components/customer/ServiceGrid";
 import { SampleCard } from "@/components/customer/SampleCard";
 import { EnquiryCta } from "@/components/customer/EnquiryCta";
-// import { WhatsAppFab } from "@/components/customer/WhatsAppFab";
-import { business, faqs } from "@/lib-data";
+import { getSiteSettings } from "@/lib/site-settings";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
 export default async function Home() {
-  const featuredSamples = await prisma.sample.findMany({
-    where: { isActive: true, isFeatured: true },
-    include: {
-      category: true,
-      service: true,
-      images: { orderBy: { sortOrder: "asc" } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 4,
-  });
-  const settings = await getSiteSettings();
+  const [featured, latest, serviceRecords, settings] =
+    await Promise.all([
+      prisma.sample.findMany({
+        where: { isActive: true, isFeatured: true },
+        include: {
+          category: true,
+          service: true,
+          images: { orderBy: { sortOrder: "asc" } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+      prisma.sample.findMany({
+        where: { isActive: true },
+        include: {
+          category: true,
+          service: true,
+          images: { orderBy: { sortOrder: "asc" } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+      prisma.service.findMany({
+        where: { isActive: true },
+        orderBy: { displayOrder: "asc" },
+        include: {
+          samples: {
+            where: { isActive: true, images: { some: {} } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+          },
+        },
+      }),
+      getSiteSettings(),
+    ]);
+  const heroSamples = featured.length ? featured : latest;
+  const categories = serviceRecords.map((service) => ({
+    name: service.name,
+    slug: service.slug,
+    image: service.samples[0]?.images[0] || null,
+  }));
+  const latestUnique = latest.filter(
+    (sample) => !featured.some((item) => item.id === sample.id),
+  );
+  const whatsappHref = `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(settings.whatsappMessage || "Hello, I would like to enquire about printing.")}`;
   return (
-    <>
-      {/* <Navbar
-        businessName={settings.businessName}
-        phonePrimary={settings.phonePrimary ?? ""}
-        whatsapp={settings.whatsapp}
-        whatsappMessage={settings.whatsappMessage ?? ""}
-      /> */}
-      <main>
-        <Hero />
-        <section className="border-y border-[var(--border)] bg-[var(--surface)] py-7">
-          <div className="container-shell grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <p className="text-sm text-[var(--muted)]">Local studio</p>
-              <p className="mt-1 font-semibold">Nadiad, Gujarat</p>
-            </div>
-            <div>
-              <p className="text-sm text-[var(--muted)]">Personal support</p>
-              <p className="mt-1 font-semibold">Talk directly to the shop</p>
-            </div>
-            <div>
-              <p className="text-sm text-[var(--muted)]">Response</p>
-              <p className="mt-1 font-semibold">WhatsApp & phone</p>
-            </div>
-            <div>
-              <p className="text-sm text-[var(--muted)]">Hours</p>
-              <p className="mt-1 font-semibold">{settings.hours}</p>
-            </div>
+    <main>
+      <Hero samples={heroSamples} phone={settings.phonePrimary} />
+      <section className="border-y border-[var(--border)] bg-white py-5">
+        <div className="container-shell grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+          <div>
+            <span className="block text-xs text-[var(--muted)]">
+              Local studio
+            </span>
+            <strong>Nadiad, Gujarat</strong>
           </div>
-        </section>
-        <ServiceGrid />
-        {featuredSamples.length > 0 && (
-          <section className="bg-[#efe7dc] py-24">
-            <div className="container-shell">
-              <div className="mb-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-                <div className="max-w-2xl">
-                  <p className="eyebrow">Selected work</p>
-                  <h2 className="display mt-3 text-4xl md:text-5xl">
-                    Explore ideas before you decide.
-                  </h2>
-                  <p className="mt-4 leading-7 text-[var(--muted)]">
-                    Browse a few development samples for direction. The gallery
-                    is designed to grow with the shop’s real portfolio.
-                  </p>
-                </div>
-                <Link
-                  href="/samples"
-                  className="focus-ring inline-flex w-fit items-center gap-2 rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-semibold text-white"
+          <div>
+            <span className="block text-xs text-[var(--muted)]">
+              Personal support
+            </span>
+            <strong>Talk to the shop</strong>
+          </div>
+          <div>
+            <span className="block text-xs text-[var(--muted)]">
+              Easy enquiries
+            </span>
+            <strong>WhatsApp & phone</strong>
+          </div>
+          <div>
+            <span className="block text-xs text-[var(--muted)]">
+              Working hours
+            </span>
+            <strong>{settings.hours}</strong>
+          </div>
+        </div>
+      </section>
+      <ServiceGrid categories={categories} />
+      {featured.length > 0 && (
+        <section className="showcase-section py-16 sm:py-20 lg:py-28">
+          <div className="container-shell">
+            <div className="mb-8 flex items-end justify-between gap-5 sm:mb-10">
+              <div>
+                <p className="eyebrow">Featured samples</p>
+                <h2 className="display mt-3 text-4xl sm:text-5xl">
+                  Print worth looking closer at.
+                </h2>
+              </div>
+              <Link
+                href="/samples"
+                className="focus-ring hidden rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-semibold text-white sm:inline-flex"
+              >
+                Explore gallery <ArrowRight size={16} className="ml-2" />
+              </Link>
+            </div>
+            <div className="featured-scroll">
+              {featured.map((sample, index) => (
+                <div
+                  className={index === 0 ? "featured-lead" : ""}
+                  key={sample.slug}
                 >
-                  See all samples <ArrowRight size={16} />
-                </Link>
-              </div>
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-                {featuredSamples.map((s) => (
-                  <SampleCard key={s.slug} sample={s} compact />
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-        <section className="py-24">
-          <div className="container-shell grid gap-14 lg:grid-cols-2">
-            <div>
-              <p className="eyebrow">How it works</p>
-              <h2 className="display mt-3 text-4xl md:text-5xl">
-                From inspiration to print, without the runaround.
-              </h2>
-              <div className="mt-9 space-y-6">
-                {[
-                  ["01", "Explore", "Browse services and samples."],
-                  [
-                    "02",
-                    "Choose",
-                    "Find a design direction or describe what you need.",
-                  ],
-                  [
-                    "03",
-                    "Enquire",
-                    "Send your requirements through WhatsApp or the website.",
-                  ],
-                  [
-                    "04",
-                    "Print",
-                    "The team confirms the details and starts production.",
-                  ],
-                ].map(([n, t, d]) => (
-                  <div key={n} className="flex gap-5">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full border border-[var(--border)] text-xs font-semibold">
-                      {n}
-                    </span>
-                    <div>
-                      <h3 className="font-semibold">{t}</h3>
-                      <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                        {d}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-8 md:p-10">
-              <p className="eyebrow">Why choose us</p>
-              <div className="mt-7 grid gap-4 sm:grid-cols-2">
-                {[
-                  "Premium Quality",
-                  "Experienced Team",
-                  "Custom Designs",
-                  "Fast Response",
-                  "Competitive Pricing",
-                  "Reliable Service",
-                  "Bulk Orders",
-                  "Personalized Support",
-                ].map((x) => (
-                  <div
-                    key={x}
-                    className="flex items-center gap-3 rounded-xl bg-[var(--background)] p-4"
-                  >
-                    <span className="grid size-7 place-items-center rounded-full bg-white">
-                      <Check size={15} />
-                    </span>
-                    <span className="text-sm font-medium">{x}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-        <section className="bg-[var(--surface)] py-24">
-          <div className="container-shell grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
-            <div>
-              <p className="eyebrow">Frequently asked</p>
-              <h2 className="display mt-3 text-4xl md:text-5xl">
-                Questions, answered simply.
-              </h2>
-            </div>
-            <div className="divide-y divide-[var(--border)] rounded-[1.5rem] border border-[var(--border)] bg-[var(--background)] px-6">
-              {faqs.map(([q, a]) => (
-                <details key={q} className="group py-5">
-                  <summary className="cursor-pointer list-none pr-8 font-semibold marker:hidden">
-                    {q}
-                  </summary>
-                  <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--muted)]">
-                    {a}
-                  </p>
-                </details>
+                  <SampleCard sample={sample} compact={index !== 0} />
+                </div>
               ))}
             </div>
           </div>
         </section>
-        <section className="py-24">
-          <div className="container-shell grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
-            <div className="rounded-[2rem] bg-[var(--foreground)] p-8 text-white md:p-12">
-              <p className="eyebrow text-[#d9bd82]">Find the shop</p>
-              <h2 className="display mt-3 text-4xl md:text-5xl">
-                Let’s talk about what you want to print.
-              </h2>
-              <div className="mt-8 grid gap-5 sm:grid-cols-2">
-                <div className="flex gap-3">
-                  <MapPin className="mt-1 shrink-0 text-[#d9bd82]" size={18} />
-                  <p className="text-sm leading-6 text-white/75">
-                    {settings.address}
-                  </p>
-                </div>
-                <div className="flex gap-3">
-                  <Clock3 className="mt-1 shrink-0 text-[#d9bd82]" size={18} />
-                  <p className="text-sm leading-6 text-white/75">
-                    {settings.hours}
-                  </p>
-                </div>
+      )}
+      {latestUnique.length > 0 && (
+        <section className="overflow-hidden border-y border-[var(--border)] bg-[var(--surface)] py-16 sm:py-20">
+          <div className="container-shell">
+            <div className="mb-8 flex items-end justify-between gap-5">
+              <div>
+                <p className="eyebrow">Latest printed work</p>
+                <h2 className="display mt-3 text-4xl">
+                  Fresh from the studio.
+                </h2>
               </div>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href="/contact"
-                  className="focus-ring rounded-full bg-white px-5 py-3 text-sm font-semibold text-[var(--foreground)]"
-                >
-                  Contact the shop
-                </Link>
-                <a
-                  href={`tel:${settings.phonePrimary.replace(/\s/g, "")}`}
-                  className="focus-ring inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-semibold"
-                >
-                  <Phone size={16} /> Call
-                </a>
-              </div>
-            </div>
-            <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-8">
-              <p className="eyebrow">Direct contact</p>
-              <h3 className="display mt-3 text-3xl">Prefer a quick message?</h3>
-              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                WhatsApp is ideal for sharing references, quantities and
-                questions.
-              </p>
-              <a
-                href={`https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(settings.whatsappMessage || "Hello, I would like to enquire about printing.")}`}
-                className="focus-ring mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--maroon)] px-5 py-3 font-semibold text-white"
+              <Link
+                href="/samples"
+                className="text-sm font-bold text-[var(--maroon)]"
               >
-                <MessageCircle size={17} /> Chat on WhatsApp
-              </a>
-              <div className="mt-6 grid gap-2 text-sm text-[var(--muted)]">
-                <a
-                  href={`tel:${settings.phonePrimary.replace(/\s/g, "")}`}
-                  className="hover:text-[var(--foreground)]"
-                >
-                  {settings.phonePrimary}
-                </a>
-                <a
-                  href={`tel:${settings.phoneSecondary?.replace(/\s/g, "")}`}
-                  className="hover:text-[var(--foreground)]"
-                >
-                  {settings.phoneSecondary}
-                </a>
-                <a
-                  href={`mailto:${settings.email}`}
-                  className="hover:text-[var(--foreground)]"
-                >
-                  {settings.email}
-                </a>
-              </div>
+                See all
+              </Link>
+            </div>
+            <div className="latest-strip">
+              {latestUnique.map((sample) => (
+                <SampleCard key={sample.slug} sample={sample} compact />
+              ))}
             </div>
           </div>
         </section>
-        <EnquiryCta />
-      </main>
-      {/* <WhatsAppFab
-        businessName={settings.businessName}
-        whatsapp={settings.whatsapp}
-        whatsappMessage={settings.whatsappMessage ?? ""}
-      /> */}
-      <footer className="border-t border-[var(--border)] py-10">
-        <div className="container-shell flex flex-col gap-5 text-sm text-[var(--muted)] md:flex-row md:items-center md:justify-between">
+      )}
+      <section className="py-16 sm:py-20">
+        <div className="container-shell">
+          <p className="eyebrow">How it works</p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["01", "Choose", "Find a product or idea."],
+              ["02", "Customize", "Share your size and finish."],
+              ["03", "Enquire", "Talk directly with our team."],
+              ["04", "Print", "Approve and bring it to life."],
+            ].map(([number, title, text]) => (
+              <div
+                key={number}
+                className="rounded-2xl border border-[var(--border)] bg-white p-5"
+              >
+                <span className="text-xs font-bold tracking-[.18em] text-[var(--gold)]">
+                  {number}
+                </span>
+                <h3 className="mt-8 font-bold">{title}.</h3>
+                <p className="mt-2 text-sm text-[var(--muted)]">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="py-10 sm:py-16">
+        <div className="container-shell grid gap-6 rounded-[2rem] bg-[#ebddd0] p-6 sm:p-10 lg:grid-cols-[1.1fr_.9fr] lg:p-12">
           <div>
-            <p className="font-semibold text-[var(--foreground)]">
+            <p className="eyebrow">About Sharda Offset</p>
+            <h2 className="display mt-3 max-w-xl text-4xl sm:text-5xl">
+              A local print partner for your important moments.
+            </h2>
+            <p className="mt-5 max-w-xl leading-7 text-[var(--muted)]">
+              From single cards to full business stationery, we help turn a
+              clear idea into something you can hold.
+            </p>
+            <Link
+              href="/about"
+              className="focus-ring mt-7 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold"
+            >
+              Our story <ArrowRight size={16} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 self-end">
+            <div className="rounded-2xl bg-[#f8f4ee] p-5">
+              <Sparkles className="text-[var(--maroon)]" />
+              <p className="mt-8 font-bold">Thoughtful design</p>
+            </div>
+            <div className="rounded-2xl bg-[var(--maroon)] p-5 text-white">
+              <Check />
+              <p className="mt-8 font-bold">Personal guidance</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="py-10 sm:py-16">
+        <div className="container-shell grid gap-6 rounded-[2rem] border border-[var(--border)] bg-white p-7 sm:p-10 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <p className="eyebrow">Contact & enquiry</p>
+            <h2 className="display mt-3 text-4xl sm:text-5xl">
+              Let&apos;s print something together.
+            </h2>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link
+                href="/contact"
+                className="focus-ring inline-flex items-center gap-2 rounded-full bg-[var(--maroon)] px-5 py-3 text-sm font-bold text-white"
+              >
+                Send an enquiry <ArrowRight size={16} />
+              </Link>
+              <a
+                href={whatsappHref}
+                className="focus-ring inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-5 py-3 text-sm font-bold"
+              >
+                <MessageCircle size={16} /> WhatsApp
+              </a>
+            </div>
+          </div>
+          <div className="grid gap-4 text-sm">
+            <p className="flex gap-3">
+              <MapPin className="shrink-0 text-[var(--gold)]" size={18} />
+              {settings.address}
+            </p>
+            <p className="flex gap-3">
+              <Clock3 className="shrink-0 text-[var(--gold)]" size={18} />
+              {settings.hours}
+            </p>
+            <a
+              href={`tel:${settings.phonePrimary.replace(/\s/g, "")}`}
+              className="flex gap-3 font-semibold"
+            >
+              <Phone className="shrink-0 text-[var(--gold)]" size={18} />
+              {settings.phonePrimary}
+            </a>
+          </div>
+        </div>
+      </section>
+      <EnquiryCta />
+      <footer className="border-t border-[var(--border)] py-10">
+        <div className="container-shell flex flex-col gap-4 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-bold text-[var(--foreground)]">
               {settings.businessName}
             </p>
-            <p className="mt-1">Print • Design • Create</p>
+            <p>Print · Design · Perfection</p>
           </div>
           <p>
             © {new Date().getFullYear()} {settings.businessName}. All rights
@@ -273,6 +261,6 @@ export default async function Home() {
           </p>
         </div>
       </footer>
-    </>
+    </main>
   );
 }

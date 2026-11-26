@@ -39,7 +39,7 @@ export default function Navbar({
 
   const links = [
     ["Home", "/"],
-    ["Services", "/#services"],
+    ["Services", "/#products"],
     ["Samples", "/samples"],
     ["About", "/about"],
     ["Contact", "/contact"],
@@ -61,6 +61,7 @@ export default function Navbar({
                 src={logoUrl}
                 alt={`${businessName} logo`}
                 fill
+                sizes="(max-width: 640px) 96px, 144px"
                 className="object-contain object-left"
                 priority
               />
