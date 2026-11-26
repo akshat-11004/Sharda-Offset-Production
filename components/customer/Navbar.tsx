@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Menu, MessageCircle, Phone, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trackEvent } from "@/lib/analytics";
 import Image from "next/image";
 
@@ -22,6 +22,13 @@ export default function Navbar({
   phonePrimary,
 }: NavbarProps) {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 18);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const whatsappUrl = `https://wa.me/${whatsapp.replace(
     /\D/g,
@@ -39,7 +46,7 @@ export default function Navbar({
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[rgba(247,243,236,.94)] backdrop-blur">
+    <header className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "border-b border-[var(--border)] bg-[rgba(247,243,236,.9)] shadow-[0_8px_30px_rgba(33,30,27,.06)] backdrop-blur-xl" : "bg-[rgba(247,243,236,.55)] backdrop-blur-sm"}`}>
       <div className="container-shell flex min-h-16 items-center justify-between gap-3 sm:min-h-18 sm:gap-5">
         {/* Brand */}
         <Link
@@ -83,7 +90,7 @@ export default function Navbar({
           {links.map(([label, href]) => (
             <Link
               key={label}
-              className="focus-ring rounded-md text-[var(--muted)] transition hover:text-[var(--foreground)]"
+              className="nav-link focus-ring rounded-md text-[var(--muted)] transition hover:text-[var(--foreground)]"
               href={href}
             >
               {label}
@@ -121,7 +128,7 @@ export default function Navbar({
                 metadata: { location: "navbar" },
               })
             }
-            className="focus-ring inline-flex items-center gap-2 rounded-full bg-[var(--maroon)] px-3 py-2 text-sm font-medium text-white lg:px-4"
+            className="premium-button focus-ring inline-flex items-center gap-2 rounded-full bg-[var(--maroon)] px-3 py-2 text-sm font-medium text-white lg:px-4"
             href={whatsappUrl}
           >
             <MessageCircle size={16} />
@@ -142,7 +149,7 @@ export default function Navbar({
 
       {/* Mobile navigation */}
       {open && (
-        <div className="border-t border-[var(--border)] bg-[var(--surface)] md:hidden">
+        <div className="border-t border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_35px_rgba(33,30,27,.08)] md:hidden">
           <nav
             className="container-shell flex flex-col gap-0.5 py-3"
             aria-label="Mobile navigation"
