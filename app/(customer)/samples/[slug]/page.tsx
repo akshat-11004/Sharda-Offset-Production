@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { SampleViewTracker } from "@/components/customer/SampleViewTracker";
 import { TrackedAnchor } from "@/components/customer/TrackedAnchor";
 import { getSiteSettings } from "@/lib/site-settings";
+import { SampleImageGallery } from "@/components/customer/SampleImageGallery";
 
 export const dynamic = "force-dynamic";
 const settings = await getSiteSettings();
@@ -63,27 +64,7 @@ export default async function SampleDetail({
               <ArrowLeft size={16} /> Back to samples
             </Link>
             <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
-              <div className="grid gap-4">
-                {sample.images.length ? (
-                  sample.images.map((image) => (
-                    <img
-                      key={image.id}
-                      src={image.url}
-                      alt={image.altText || sample.title}
-                      className="w-full rounded-[2rem] object-cover"
-                    />
-                  ))
-                ) : (
-                  <div className="sample-art min-h-[520px] rounded-[2rem]">
-                    <div className="sample-paper">
-                      <span>{sample.tags[0] || "Sample"}</span>
-                      <strong>{sample.title}</strong>
-                      <small>{sample.category.name}</small>
-                    </div>
-                    <span className="sample-mark">SO</span>
-                  </div>
-                )}
-              </div>
+              <SampleImageGallery images={sample.images} title={sample.title} />
               <div>
                 <p className="eyebrow">
                   {sample.category.name}

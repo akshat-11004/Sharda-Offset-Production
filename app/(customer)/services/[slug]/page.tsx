@@ -20,15 +20,18 @@ export default async function ServicePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const service = services.find((item) => item.slug === slug);
+  const service = services.find(
+    (item) => item.slug === slug || item.slug === `${slug}s`,
+  );
   if (!service) notFound();
+  const resolvedSlug = service.slug;
   const [databaseService, matches] = await Promise.all([
     prisma.service.findUnique({
-      where: { slug },
+      where: { slug: resolvedSlug },
       select: { id: true, name: true },
     }),
     prisma.sample.findMany({
-      where: { isActive: true, service: { slug } },
+      where: { isActive: true, service: { slug: resolvedSlug } },
       include: {
         category: true,
         service: true,
