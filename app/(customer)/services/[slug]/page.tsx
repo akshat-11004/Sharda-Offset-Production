@@ -1,13 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, MessageCircle } from "lucide-react";
-// import { Navbar } from '@/components/customer/Navbar';
 import { SampleCard } from "@/components/customer/SampleCard";
 import { EnquiryCta } from "@/components/customer/EnquiryCta";
 import { GlowingEffect } from "@/components/customer/interactions/GlowingEffect";
 import { MagneticButton } from "@/components/customer/interactions/MagneticButton";
-// import { WhatsAppFab } from '@/components/customer/WhatsAppFab';
-import { business, services } from "@/lib-data";
+import { services } from "@/lib-data";
 import { prisma } from "@/lib/prisma";
 import { ServiceViewTracker } from "@/components/customer/ServiceViewTracker";
 import { TrackedAnchor } from "@/components/customer/TrackedAnchor";
@@ -15,34 +13,37 @@ import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
 
-const settings = await getSiteSettings();
 export default async function ServicePage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const service = services.find(
-    (item) => item.slug === slug || item.slug === `${slug}s`,
-  );
-  if (!service) notFound();
-  const resolvedSlug = service.slug;
-  const [databaseService, matches] = await Promise.all([
-    prisma.service.findUnique({
-      where: { slug: resolvedSlug },
-      select: { id: true, name: true },
-    }),
-    prisma.sample.findMany({
-      where: { isActive: true, service: { slug: resolvedSlug } },
+  const canonicalService = services.find((item) => item.slug === slug);
+  const legacyService = canonicalService ?? services.find((item) => item.slug === `${slug}s`);
+  const records = await prisma.service.findMany({
+    where: { slug: { in: legacyService ? [slug, legacyService.slug] : [slug] } },
+    select: { id: true, slug: true, name: true, description: true, isActive: true },
+  });
+  const exactService = records.find((item) => item.slug === slug);
+  const databaseService = exactService ?? records.find((item) => item.slug === legacyService?.slug);
+  const fallback = exactService ? canonicalService : legacyService;
+  const name = databaseService?.name ?? fallback?.name;
+  if (!name || databaseService?.isActive === false) notFound();
+
+  const [settings, matches] = await Promise.all([
+    getSiteSettings(),
+    databaseService ? prisma.sample.findMany({
+      where: { isActive: true, serviceId: databaseService.id },
       include: {
         category: true,
         service: true,
         images: { orderBy: { sortOrder: "asc" } },
       },
       orderBy: { createdAt: "desc" },
-    }),
+    }) : [],
   ]);
-  const msg = `Hello, I am interested in ${service.name}. Please share details and pricing.`;
+  const msg = `Hello, I am interested in ${name}. Please share details and pricing.`;
   return (
     <>
       {databaseService && (
@@ -52,17 +53,16 @@ export default async function ServicePage({
           title={databaseService.name}
         />
       )}
-      {/* <Navbar /> */}
       <main>
         <section className="py-16 md:py-24">
           <div className="container-shell grid gap-12 lg:grid-cols-[1fr_.8fr] lg:items-center">
             <div>
               <p className="eyebrow">Printing service</p>
               <h1 className="display mt-3 text-5xl md:text-6xl">
-                {service.name}
+                {name}
               </h1>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--muted)]">
-                {service.blurb}
+              <p className="mt-5 max-w-2xl whitespace-pre-line text-lg leading-8 text-[var(--muted)]">
+                {databaseService?.description || fallback?.blurb}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <TrackedAnchor
@@ -84,10 +84,10 @@ export default async function ServicePage({
                 </Link>
               </div>
             </div>
-            <div data-reveal className={`service-feature service-hero service-${service.accent}`}>
+            <div data-reveal className={`service-feature service-hero service-${fallback?.accent ?? "paper"}`}>
               <GlowingEffect />
               <span>{settings.businessName.toUpperCase()}</span>
-              <strong>{service.name}</strong>
+              <strong>{name}</strong>
               <small>Design • Printing • Process</small>
             </div>
           </div>
@@ -126,7 +126,6 @@ export default async function ServicePage({
         </section>
         <EnquiryCta whatsapp={settings.whatsapp} />
       </main>
-      {/* <WhatsAppFab /> */}
     </>
   );
 }
