@@ -8,7 +8,7 @@ export default function About() {
       {/* <Navbar /> */}
       <main>
         <section className="py-20 md:py-28">
-          <div className="container-shell max-w-5xl">
+          <div data-reveal className="container-shell max-w-5xl">
             <p className="eyebrow">About Sharda Offset</p>
             <h1 className="display mt-4 text-5xl md:text-7xl">
               A local printing studio built around thoughtful service and
@@ -22,7 +22,7 @@ export default function About() {
           </div>
         </section>
         <section className="bg-[var(--surface)] py-20">
-          <div className="container-shell grid gap-5 md:grid-cols-3">
+          <div data-reveal className="container-shell grid gap-5 md:grid-cols-3">
             {[
               [
                 "01",
@@ -56,7 +56,7 @@ export default function About() {
           </div>
         </section>
         <section className="py-20">
-          <div className="container-shell grid gap-12 lg:grid-cols-2 lg:items-center">
+          <div data-reveal className="container-shell grid gap-12 lg:grid-cols-2 lg:items-center">
             <div>
               <p className="eyebrow">What the experience should feel like</p>
               <h2 className="display mt-3 text-4xl md:text-5xl">

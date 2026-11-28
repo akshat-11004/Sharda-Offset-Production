@@ -29,7 +29,7 @@ export function WhatsAppFab({
       }
       href={href}
       aria-label={`Chat with ${businessName}`}
-      className="fixed bottom-20 right-4 z-40 grid size-14 place-items-center rounded-full border border-white/20 bg-[var(--maroon)] text-white shadow-[0_14px_35px_rgba(109,36,48,.35)] transition duration-300 hover:-translate-y-1 hover:scale-105 sm:bottom-5"
+      className="catalogue-fab focus-ring z-40 grid size-11 place-items-center rounded-full border border-white/20 bg-[var(--maroon)] text-white shadow-[0_10px_24px_rgba(109,36,48,.25)] lg:fixed lg:size-14"
     >
       <MessageCircle />
     </a>

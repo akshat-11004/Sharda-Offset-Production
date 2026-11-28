@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowDown, ArrowRight, Phone } from "lucide-react";
+import { MagneticButton } from "./interactions/MagneticButton";
 
 type HeroSample = {
   slug: string;
@@ -17,7 +18,7 @@ export function Hero({
 }) {
   const visibleSamples = samples.slice(0, 3);
   return (
-    <section className="showroom-hero" aria-labelledby="hero-heading">
+    <section className="showroom-hero" data-spotlight aria-labelledby="hero-heading">
       <div className="showroom-wash" aria-hidden="true" />
       <div className="showroom-grid" aria-hidden="true" />
       <div className="container-shell relative z-10 flex min-h-[calc(100svh-4rem)] flex-col justify-between py-7 sm:min-h-[calc(100svh-4.5rem)] sm:py-10 lg:min-h-[calc(100dvh-4.5rem)] lg:py-12">
@@ -41,12 +42,12 @@ export function Hero({
             <span>Beautifully Printed.</span>
           </h1>
           <div className="mt-7 flex flex-wrap items-center gap-3 sm:mt-8">
-            <Link
+            <a
               href="#products"
               className="premium-button focus-ring inline-flex min-h-12 items-center gap-2 rounded-full bg-[var(--maroon)] px-5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(109,36,48,.22)]"
             >
-              Explore Products <ArrowRight size={17} />
-            </Link>
+              <MagneticButton>Explore Products <ArrowRight size={17} /></MagneticButton>
+            </a>
             <a
               href={`tel:${phone.replace(/\s/g, "")}`}
               className="focus-ring inline-flex min-h-12 items-center gap-2 rounded-full border border-[var(--border)] bg-white/75 px-5 text-sm font-semibold backdrop-blur-sm"
@@ -63,6 +64,7 @@ export function Hero({
                 <Link
                   href={`/samples/${sample.slug}`}
                   key={sample.slug}
+                  data-cursor="sample"
                   className={`hero-sample hero-sample-${index + 1} focus-ring`}
                 >
                   {image ? (

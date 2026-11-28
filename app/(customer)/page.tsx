@@ -12,6 +12,8 @@ import { Hero } from "@/components/customer/Hero";
 import { ServiceGrid } from "@/components/customer/ServiceGrid";
 import { SampleCard } from "@/components/customer/SampleCard";
 import { EnquiryCta } from "@/components/customer/EnquiryCta";
+import { GlowingEffect } from "@/components/customer/interactions/GlowingEffect";
+import { MagneticButton } from "@/components/customer/interactions/MagneticButton";
 import { getSiteSettings } from "@/lib/site-settings";
 import { prisma } from "@/lib/prisma";
 
@@ -97,9 +99,9 @@ export default async function Home() {
       </section>
       <ServiceGrid categories={categories} />
       {featured.length > 0 && (
-        <section className="showcase-section py-16 sm:py-20 lg:py-28">
+        <section data-spotlight className="showcase-section relative py-16 sm:py-20 lg:py-28">
           <div className="container-shell">
-            <div className="mb-8 flex items-end justify-between gap-5 sm:mb-10">
+            <div data-reveal className="mb-8 flex items-end justify-between gap-5 sm:mb-10">
               <div>
                 <p className="eyebrow">Featured samples</p>
                 <h2 className="display mt-3 text-4xl sm:text-5xl">
@@ -110,7 +112,7 @@ export default async function Home() {
                 href="/samples"
                 className="focus-ring hidden rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-semibold text-white sm:inline-flex"
               >
-                Explore gallery <ArrowRight size={16} className="ml-2" />
+                <MagneticButton>Explore gallery <ArrowRight size={16} className="ml-2" /></MagneticButton>
               </Link>
             </div>
             <div className="featured-scroll">
@@ -129,7 +131,7 @@ export default async function Home() {
       {latestUnique.length > 0 && (
         <section className="overflow-hidden border-y border-[var(--border)] bg-[var(--surface)] py-16 sm:py-20">
           <div className="container-shell">
-            <div className="mb-8 flex items-end justify-between gap-5">
+            <div data-reveal className="mb-8 flex items-end justify-between gap-5">
               <div>
                 <p className="eyebrow">Latest printed work</p>
                 <h2 className="display mt-3 text-4xl">
@@ -153,7 +155,7 @@ export default async function Home() {
       )}
       <section className="py-16 sm:py-20">
         <div className="container-shell">
-          <p className="eyebrow">How it works</p>
+          <p data-reveal className="eyebrow">How it works</p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["01", "Choose", "Find a product or idea."],
@@ -163,6 +165,8 @@ export default async function Home() {
             ].map(([number, title, text]) => (
               <div
                 key={number}
+                data-reveal
+                style={{ "--reveal-delay": `${(Number(number) - 1) * 50}ms` } as React.CSSProperties}
                 className="rounded-2xl border border-[var(--border)] bg-white p-5"
               >
                 <span className="text-xs font-bold tracking-[.18em] text-[var(--gold)]">
@@ -176,7 +180,7 @@ export default async function Home() {
         </div>
       </section>
       <section className="py-10 sm:py-16">
-        <div className="container-shell grid gap-6 rounded-[2rem] bg-[#ebddd0] p-6 sm:p-10 lg:grid-cols-[1.1fr_.9fr] lg:p-12">
+        <div data-reveal className="container-shell grid gap-6 rounded-[2rem] bg-[#ebddd0] p-6 sm:p-10 lg:grid-cols-[1.1fr_.9fr] lg:p-12">
           <div>
             <p className="eyebrow">About Sharda Offset</p>
             <h2 className="display mt-3 max-w-xl text-4xl sm:text-5xl">
@@ -206,7 +210,7 @@ export default async function Home() {
         </div>
       </section>
       <section className="py-10 sm:py-16">
-        <div className="container-shell grid gap-6 rounded-[2rem] border border-[var(--border)] bg-white p-7 sm:p-10 lg:grid-cols-[1.1fr_.9fr]">
+        <div data-reveal data-spotlight className="enquiry-panel container-shell grid gap-6 rounded-[2rem] p-7 sm:p-10 lg:grid-cols-[1.1fr_.9fr]">
           <div>
             <p className="eyebrow">Contact & enquiry</p>
             <h2 className="display mt-3 text-4xl sm:text-5xl">
@@ -217,7 +221,7 @@ export default async function Home() {
                 href="/contact"
                 className="focus-ring inline-flex items-center gap-2 rounded-full bg-[var(--maroon)] px-5 py-3 text-sm font-bold text-white"
               >
-                Send an enquiry <ArrowRight size={16} />
+                <MagneticButton>Send an enquiry <ArrowRight size={16} /></MagneticButton>
               </Link>
               <a
                 href={whatsappHref}
@@ -244,11 +248,12 @@ export default async function Home() {
               {settings.phonePrimary}
             </a>
           </div>
+          <GlowingEffect />
         </div>
       </section>
-      <EnquiryCta />
-      <footer className="border-t border-[var(--border)] py-10">
-        <div className="container-shell flex flex-col gap-4 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
+      <EnquiryCta whatsapp={settings.whatsapp} />
+      <footer className="catalogue-footer border-t border-[var(--border)] py-10">
+        <div data-reveal className="container-shell flex flex-col gap-4 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-bold text-[var(--foreground)]">
               {settings.businessName}
