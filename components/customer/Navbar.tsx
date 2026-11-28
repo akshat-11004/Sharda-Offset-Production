@@ -46,7 +46,9 @@ export default function Navbar({
   ];
 
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "border-b border-[var(--border)] bg-[rgba(247,243,236,.9)] shadow-[0_8px_30px_rgba(33,30,27,.06)] backdrop-blur-xl" : "bg-[rgba(247,243,236,.55)] backdrop-blur-sm"}`}>
+    <header
+      className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "border-b border-[var(--border)] bg-[rgba(247,243,236,.9)] shadow-[0_8px_30px_rgba(33,30,27,.06)] backdrop-blur-xl" : "bg-[rgba(247,243,236,.55)] backdrop-blur-sm"}`}
+    >
       <div className="container-shell flex min-h-16 items-center justify-between gap-3 sm:min-h-18 sm:gap-5">
         {/* Brand */}
         <Link
@@ -78,7 +80,7 @@ export default function Navbar({
             </span>
 
             <span className="hidden text-xs text-[var(--muted)] sm:block">
-              Print • Design • Create
+              Design · Printing · Process
             </span>
           </span>
         </Link>

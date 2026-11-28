@@ -85,7 +85,7 @@ export default async function ServicePage({
             <div className={`service-hero service-${service.accent}`}>
               <span>{settings.businessName.toUpperCase()}</span>
               <strong>{service.name}</strong>
-              <small>PRINT • DESIGN • CREATE</small>
+              <small>Design • Printing • Process</small>
             </div>
           </div>
         </section>

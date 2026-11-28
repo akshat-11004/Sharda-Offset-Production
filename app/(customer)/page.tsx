@@ -253,7 +253,7 @@ export default async function Home() {
             <p className="font-bold text-[var(--foreground)]">
               {settings.businessName}
             </p>
-            <p>Print · Design · Perfection</p>
+            <p>Design · Printing · Process</p>
           </div>
           <p>
             © {new Date().getFullYear()} {settings.businessName}. All rights
