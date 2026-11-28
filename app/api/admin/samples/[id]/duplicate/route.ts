@@ -1,109 +1,74 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/auth/require-owner";
+import { requireOwnerApi } from "@/lib/auth/require-owner-api";
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireOwner();
+    if (!(await requireOwnerApi())) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
 
     const { id } = await params;
-
     const source = await prisma.sample.findUnique({
       where: { id },
-      include: {
-        images: {
-          orderBy: { sortOrder: "asc" },
-        },
-      },
+      include: { images: { orderBy: { sortOrder: "asc" } } },
     });
 
     if (!source) {
-      return NextResponse.json(
-        { ok: false, error: "Sample not found." },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: "Sample not found. Refresh the samples list." }, { status: 404 });
     }
 
-    // Create a unique slug for the copy.
     const baseSlug = `${source.slug}-copy`;
+    for (let number = 1; ; number++) {
+      const slug = number === 1 ? baseSlug : `${baseSlug}-${number}`;
+      if (await prisma.sample.findUnique({ where: { slug }, select: { id: true } })) continue;
 
-    let slug = baseSlug;
-    let number = 2;
+      try {
+        const sample = await prisma.sample.create({
+          data: {
+            title: `${source.title} Copy`,
+            slug,
+            description: source.description,
+            category: { connect: { id: source.categoryId } },
+            service: { connect: { id: source.serviceId } },
+            material: source.material,
+            size: source.size,
+            tags: source.tags,
+            isFeatured: false,
+            isActive: false,
+            images: {
+              create: source.images.map((image, index) => ({
+                url: image.url,
+                sortOrder: index,
+                altText: image.altText,
+              })),
+            },
+          },
+          include: {
+            category: true,
+            service: true,
+            images: { orderBy: { sortOrder: "asc" } },
+          },
+        });
 
-    while (await prisma.sample.findUnique({ where: { slug } })) {
-      slug = `${baseSlug}-${number}`;
-      number++;
+        return NextResponse.json({ ok: true, sample }, { status: 201 });
+      } catch (error) {
+        // Another request can claim the slug after the lookup.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" &&
+            Array.isArray(error.meta?.target) && error.meta.target.includes("slug")) {
+          continue;
+        }
+        throw error;
+      }
     }
-
-    const copy = await prisma.sample.create({
-      data: {
-        title: `${source.title} Copy`,
-        slug,
-        description: source.description,
-
-        // Relations
-        category: {
-          connect: {
-            id: source.categoryId,
-          },
-        },
-
-        service: {
-          connect: {
-            id: source.serviceId,
-          },
-        },
-
-        // Current Sample fields
-        material: source.material,
-        size: source.size,
-        tags: source.tags,
-
-        // A duplicated sample starts hidden
-        // and not featured.
-        isFeatured: false,
-        isActive: false,
-
-        // Copy all images
-        images: {
-          create: source.images.map((image, index) => ({
-            url: image.url,
-            sortOrder: index,
-            altText: image.altText,
-          })),
-        },
-      },
-
-      include: {
-        category: true,
-        service: true,
-        images: {
-          orderBy: { sortOrder: "asc" },
-        },
-      },
-    });
-
-    return NextResponse.json(
-      {
-        ok: true,
-        sample: copy,
-      },
-      { status: 201 }
-    );
   } catch (error) {
     console.error("DUPLICATE SAMPLE ERROR:", error);
-
     return NextResponse.json(
-      {
-        ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to duplicate sample.",
-      },
+      { ok: false, error: "Could not duplicate the sample. Please try again." },
       { status: 500 }
     );
   }

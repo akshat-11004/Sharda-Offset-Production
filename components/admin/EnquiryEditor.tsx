@@ -1,307 +1,125 @@
+
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
+import type { Enquiry, EnquiryStatus } from "@prisma/client";
+import { Feedback } from "./AdminUI";
+import ConfirmAction from "./ConfirmAction";
+import EnquiryStatusForm from "./EnquiryStatusForm";
+import { enquiryStatuses, enquiryStatusLabels } from "./enquiry-status";
 
-const statuses = [
-  "NEW",
-  "CONTACTED",
-  "QUOTATION_SENT",
-  "IN_PROGRESS",
-  "CONVERTED",
-  "CLOSED",
-  "NOT_INTERESTED",
-] as const;
+type Action = "edit" | "status" | "delete";
 
-type Service = {
-  id: string;
-  name: string;
-};
-
-type Sample = {
-  id: string;
-  title: string;
-};
-
-type Enquiry = {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  message: string;
-  preferredContact: string | null;
-  status: string;
-  serviceId: string | null;
-  sampleId: string | null;
-};
-
-export default function EnquiryEditor({
-  enquiry,
-  services,
-  samples,
-}: {
-  enquiry: Enquiry;
-  services: Service[];
-  samples: Sample[];
+export default function EnquiryEditor({ enquiry, services, samples }: {
+  enquiry: Pick<Enquiry, "id" | "name" | "phone" | "email" | "message" | "preferredContact" | "status" | "serviceId" | "sampleId">;
+  services: { id: string; name: string }[];
+  samples: { id: string; title: string }[];
 }) {
   const router = useRouter();
-
+  const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [action, setAction] = useState<Action | null>(null);
+  const [nextStatus, setNextStatus] = useState<EnquiryStatus | null>(null);
+  const [feedback, setFeedback] = useState<{ error?: boolean; text: string }>();
+  const editButton = useRef<HTMLButtonElement>(null);
+  const busy = pending || action !== null;
 
-  const [name, setName] = useState(enquiry.name);
-  const [phone, setPhone] = useState(enquiry.phone);
-  const [email, setEmail] = useState(enquiry.email || "");
-  const [message, setMessage] = useState(enquiry.message);
-  const [preferredContact, setPreferredContact] = useState(
-    enquiry.preferredContact || "WHATSAPP",
-  );
-  const [status, setStatus] = useState(enquiry.status);
-
-  const [serviceId, setServiceId] = useState(enquiry.serviceId || "");
-
-  const [sampleId, setSampleId] = useState(enquiry.sampleId || "");
-
-  function reset() {
-    setName(enquiry.name);
-    setPhone(enquiry.phone);
-    setEmail(enquiry.email || "");
-    setMessage(enquiry.message);
-    setPreferredContact(enquiry.preferredContact || "WHATSAPP");
-    setStatus(enquiry.status);
-    setServiceId(enquiry.serviceId || "");
-    setSampleId(enquiry.sampleId || "");
-  }
-
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-
-    setSaving(true);
-
+  async function update(nextAction: Action, body?: object) {
+    if (busy) return;
+    setAction(nextAction);
+    setFeedback(undefined);
     try {
-      const response = await fetch(`/api/admin/enquiries/${enquiry.id}`, {
+      const response = await fetch(`/api/admin/enquiries/${enquiry.id}`, nextAction === "delete" ? { method: "DELETE" } : {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          phone,
-          email: email || null,
-          message,
-          preferredContact,
-          status,
-          serviceId: serviceId || null,
-          sampleId: sampleId || null,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
-
       const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Unable to update enquiry.");
-      }
-
+      if (!response.ok || !data.ok) throw new Error(data.error || "Unable to update the enquiry.");
       setOpen(false);
-      router.refresh();
+      if (nextAction !== "delete") setFeedback({ text: nextAction === "status" ? "Status updated." : "Enquiry saved." });
+      startTransition(() => router.refresh());
     } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Unable to update enquiry.",
-      );
+      setFeedback({ error: true, text: error instanceof Error ? error.message : "Unable to update the enquiry." });
     } finally {
-      setSaving(false);
+      setAction(null);
+      setNextStatus(null);
     }
   }
 
-  async function remove() {
-    const confirmed = window.confirm(
-      `Delete the enquiry from "${enquiry.name}"? This cannot be undone.`,
-    );
-
-    if (!confirmed) return;
-
-    setSaving(true);
-
-    try {
-      const response = await fetch(`/api/admin/enquiries/${enquiry.id}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Unable to delete enquiry.");
-      }
-
-      router.refresh();
-    } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Unable to delete enquiry.",
-      );
-    } finally {
-      setSaving(false);
-    }
+  function changeStatus(status: EnquiryStatus) {
+    if (busy) return;
+    setNextStatus(status);
+    void update("status", { status });
   }
 
-  if (!open) {
-    return (
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setOpen(true)}
-          className="rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold hover:bg-[#f6f1e9]"
-        >
-          Edit
-        </button>
-
-        <button
-          onClick={remove}
-          disabled={saving}
-          className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-        >
-          Delete
-        </button>
-      </div>
-    );
+  function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    void update("edit", {
+      ...form,
+      email: form.email || null,
+      preferredContact: form.preferredContact || null,
+      serviceId: form.serviceId || null,
+      sampleId: form.sampleId || null,
+    });
   }
 
   return (
-    <form
-      onSubmit={save}
-      className="mt-5 space-y-4 rounded-2xl border border-[#7a1f2b]/20 bg-[#fbf8f3] p-5"
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="text-xs font-semibold">Name</label>
-
-          <input
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5"
-          />
+    <div className="space-y-3">
+      {open ? (
+        <form className="grid gap-4" onSubmit={save}>
+          <h3 className="ad-section-title">Edit enquiry</h3>
+          <fieldset className="ad-form-grid min-w-0" disabled={busy}>
+            <label className="ad-field">Name<input className="ad-input" name="name" required autoFocus defaultValue={enquiry.name} /></label>
+            <label className="ad-field">Phone<input className="ad-input" type="tel" name="phone" required defaultValue={enquiry.phone} /></label>
+            <label className="ad-field">Email<input className="ad-input" type="email" name="email" defaultValue={enquiry.email ?? ""} /></label>
+            <label className="ad-field">Preferred contact
+              <select className="ad-select" name="preferredContact" defaultValue={enquiry.preferredContact || ""}>
+                <option value="">Not specified</option><option value="WHATSAPP">WhatsApp</option><option value="PHONE">Phone</option><option value="EMAIL">Email</option>
+              </select>
+            </label>
+            <label className="ad-field">Service
+              <select className="ad-select" name="serviceId" defaultValue={enquiry.serviceId ?? ""}>
+                <option value="">Custom requirement</option>
+                {services.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </label>
+            <label className="ad-field">Sample
+              <select className="ad-select" name="sampleId" defaultValue={enquiry.sampleId ?? ""}>
+                <option value="">No sample</option>
+                {samples.map(({ id, title }) => <option key={id} value={id}>{title}</option>)}
+              </select>
+            </label>
+            <label className="ad-field">Status
+              <select className="ad-select" name="status" defaultValue={enquiry.status}>
+                {enquiryStatuses.map((status) => <option key={status} value={status}>{enquiryStatusLabels[status]}</option>)}
+              </select>
+            </label>
+            <label className="ad-field ad-span">Customer message<textarea className="ad-input" name="message" rows={4} required defaultValue={enquiry.message} /></label>
+          </fieldset>
+          <div className="ad-actions">
+            <button type="button" className="ad-button" disabled={busy} onClick={() => {
+              setOpen(false);
+              setFeedback(undefined);
+              requestAnimationFrame(() => editButton.current?.focus());
+            }}>Cancel</button>
+            <button type="submit" className="ad-button ad-primary" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
+          </div>
+        </form>
+      ) : (
+        <div className="ad-form-footer items-end!">
+          <EnquiryStatusForm status={nextStatus ?? enquiry.status} disabled={busy} onChange={changeStatus} />
+          <div className="ad-actions">
+            <button ref={editButton} type="button" className="ad-button" disabled={busy} onClick={() => { setFeedback(undefined); setOpen(true); }}>Edit enquiry</button>
+            <ConfirmAction label="Delete" accessibleLabel={`Delete enquiry from ${enquiry.name}`} title={`Delete the enquiry from “${enquiry.name}”?`} disabled={busy} onConfirm={() => update("delete")} />
+          </div>
         </div>
-
-        <div>
-          <label className="text-xs font-semibold">Phone</label>
-
-          <input
-            required
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold">Email</label>
-
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold">Preferred contact</label>
-
-          <select
-            value={preferredContact}
-            onChange={(event) => setPreferredContact(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5"
-          >
-            <option value="WHATSAPP">WhatsApp</option>
-            <option value="PHONE">Phone</option>
-            <option value="EMAIL">Email</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold">Service</label>
-
-          <select
-            value={serviceId}
-            onChange={(event) => setServiceId(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5"
-          >
-            <option value="">Custom requirement</option>
-
-            {services.map((service) => (
-              <option key={service.id} value={service.id}>
-                {service.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold">Sample</label>
-
-          <select
-            value={sampleId}
-            onChange={(event) => setSampleId(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5"
-          >
-            <option value="">No sample</option>
-
-            {samples.map((sample) => (
-              <option key={sample.id} value={sample.id}>
-                {sample.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold">Status</label>
-
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5"
-          >
-            {statuses.map((item) => (
-              <option key={item} value={item}>
-                {item.replaceAll("_", " ")}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs font-semibold">Customer requirement</label>
-
-        <textarea
-          required
-          rows={5}
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5"
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-xl bg-[#7a1f2b] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            reset();
-            setOpen(false);
-          }}
-          className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+      )}
+      {action === "status" && <p className="ad-muted text-xs" role="status">Updating status…</p>}
+      {action === "delete" && <p className="ad-muted text-xs" role="status">Deleting enquiry…</p>}
+      {feedback && <Feedback tone={feedback.error ? "error" : "success"}>{feedback.text}</Feedback>}
+    </div>
   );
 }

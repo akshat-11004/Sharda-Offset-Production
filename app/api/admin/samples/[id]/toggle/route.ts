@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/auth/require-owner";
+import { requireOwnerApi } from "@/lib/auth/require-owner-api";
 import { z } from "zod";
 
 const schema = z.object({
@@ -13,11 +14,13 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireOwner();
+    if (!(await requireOwnerApi())) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
 
     const { id } = await params;
 
-    const body = schema.parse(await request.json());
+    const body = schema.parse(await request.json().catch(() => null));
 
     const data =
       body.field === "active"
@@ -34,8 +37,6 @@ export async function PATCH(
       sample,
     });
   } catch (error) {
-    console.error("TOGGLE SAMPLE ERROR:", error);
-
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
@@ -46,11 +47,15 @@ export async function PATCH(
       );
     }
 
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return NextResponse.json({ ok: false, error: "Sample not found. Refresh the samples list." }, { status: 404 });
+    }
+
+    console.error("TOGGLE SAMPLE ERROR:", error);
     return NextResponse.json(
       {
         ok: false,
-        error:
-          error instanceof Error ? error.message : "Unable to update sample.",
+        error: "Could not update the sample. Please try again.",
       },
       { status: 500 }
     );

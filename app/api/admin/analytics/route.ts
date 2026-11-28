@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { requireOwnerApi } from "@/lib/auth/require-owner-api";
 
 const eventSchema = z.enum([
   "page_view",
@@ -118,6 +119,9 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
+    if (!(await requireOwnerApi())) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
 
     const rangeParam = searchParams.get("range") || "30d";
