@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, MessageCircle, Phone, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { MessageCircle, Phone } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { MagneticButton } from "./interactions/MagneticButton";
 import { trackEvent } from "@/lib/analytics";
 import Image from "next/image";
 
@@ -12,6 +14,7 @@ type NavbarProps = {
   whatsapp: string;
   whatsappMessage: string;
   phonePrimary: string;
+  quickChat: ReactNode;
 };
 
 export default function Navbar({
@@ -20,9 +23,44 @@ export default function Navbar({
   whatsapp,
   whatsappMessage,
   phonePrimary,
+  quickChat,
 }: NavbarProps) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [hash, setHash] = useState("");
+  const toggle = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const syncLocation = () => {
+      setHash(location.hash);
+      setOpen(false);
+    };
+    syncLocation();
+    window.addEventListener("hashchange", syncLocation);
+    window.addEventListener("popstate", syncLocation);
+    return () => {
+      window.removeEventListener("hashchange", syncLocation);
+      window.removeEventListener("popstate", syncLocation);
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      toggle.current?.focus();
+    }
+    const desktop = matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => { if (desktop.matches) setOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      desktop.removeEventListener("change", closeOnDesktop);
+    };
+  }, [open]);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 18);
     onScroll();
@@ -45,9 +83,24 @@ export default function Navbar({
     ["Contact", "/contact"],
   ];
 
+  function currentLink(href: string) {
+    if (href === "/#products") {
+      return (pathname === "/" && hash === "#products") || pathname.startsWith("/services/") ? "location" : undefined;
+    }
+    if (href === "/") return pathname === "/" && hash !== "#products" ? "page" : undefined;
+    if (pathname === href) return "page";
+    return pathname.startsWith(`${href}/`) ? "location" : undefined;
+  }
+
+  function navigate(href: string) {
+    setOpen(false);
+    setHash(href === "/#products" ? "#products" : "");
+  }
+
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "border-b border-[var(--border)] bg-[rgba(247,243,236,.9)] shadow-[0_8px_30px_rgba(33,30,27,.06)] backdrop-blur-xl" : "bg-[rgba(247,243,236,.55)] backdrop-blur-sm"}`}
+      className="catalogue-header sticky top-0 z-50"
+      data-scrolled={scrolled ? "" : undefined}
     >
       <div className="container-shell flex min-h-16 items-center justify-between gap-3 sm:min-h-18 sm:gap-5">
         {/* Brand */}
@@ -55,7 +108,7 @@ export default function Navbar({
           href="/"
           className="focus-ring flex min-w-0 items-center gap-2 rounded-lg sm:gap-3"
           aria-label={`${businessName} home`}
-          onClick={() => setOpen(false)}
+          onNavigate={() => navigate("/")}
         >
           {logoUrl ? (
             <div className="relative h-10 w-24 shrink-0 sm:h-12 sm:w-36">
@@ -87,7 +140,7 @@ export default function Navbar({
 
         {/* Desktop navigation */}
         <nav
-          className="hidden items-center gap-5 text-sm md:flex lg:gap-7"
+          className="hidden items-center gap-5 text-sm lg:flex xl:gap-7"
           aria-label="Primary navigation"
         >
           {links.map(([label, href]) => (
@@ -95,6 +148,8 @@ export default function Navbar({
               key={label}
               className="nav-link focus-ring rounded-md text-[var(--muted)] transition hover:text-[var(--foreground)]"
               href={href}
+              aria-current={currentLink(href)}
+              onNavigate={() => navigate(href)}
             >
               {label}
             </Link>
@@ -109,7 +164,7 @@ export default function Navbar({
         </nav>
 
         {/* Desktop actions */}
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="hidden items-center gap-2 lg:flex">
           <a
             onClick={() =>
               trackEvent({
@@ -134,25 +189,30 @@ export default function Navbar({
             className="premium-button focus-ring inline-flex items-center gap-2 rounded-full bg-[var(--maroon)] px-3 py-2 text-sm font-medium text-white lg:px-4"
             href={whatsappUrl}
           >
-            <MessageCircle size={16} />
-            WhatsApp
+            <MagneticButton><MessageCircle size={16} /> WhatsApp</MagneticButton>
           </a>
         </div>
 
-        {/* Mobile menu button */}
-        <button
-          className="focus-ring shrink-0 rounded-lg p-2 md:hidden"
-          aria-label={open ? "Close navigation" : "Open navigation"}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div className="flex shrink-0 items-center gap-2 lg:contents">
+          {quickChat}
+          <button
+            ref={toggle}
+            type="button"
+            className="menu-toggle focus-ring shrink-0 rounded-lg lg:hidden"
+            aria-controls="catalogue-mobile-nav"
+            aria-label={open ? "Close navigation" : "Open navigation"}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile navigation */}
-      {open && (
-        <div className="border-t border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_35px_rgba(33,30,27,.08)] md:hidden">
+      <div id="catalogue-mobile-nav" className="mobile-nav" data-open={open ? "" : undefined} inert={!open} aria-hidden={!open}>
+        <div className="mobile-nav-body" data-native-scroll>
           <nav
             className="container-shell flex flex-col gap-0.5 py-3"
             aria-label="Mobile navigation"
@@ -161,8 +221,9 @@ export default function Navbar({
               <Link
                 key={label}
                 href={href}
-                onClick={() => setOpen(false)}
-                className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-[var(--background)]"
+                aria-current={currentLink(href)}
+                onNavigate={() => navigate(href)}
+                className="rounded-xl px-3 py-3 text-sm font-medium hover:bg-[var(--background)]"
               >
                 {label}
               </Link>
@@ -171,7 +232,7 @@ export default function Navbar({
             {/* Owner Login - now visible on mobile */}
             <Link
               href="/admin/login"
-              onClick={() => setOpen(false)}
+              onNavigate={() => setOpen(false)}
               className="mt-1 rounded-xl border-t border-[var(--border)] px-3 py-3 text-sm font-semibold text-[var(--maroon)] hover:bg-[var(--background)]"
             >
               Owner Login
@@ -206,7 +267,7 @@ export default function Navbar({
             </div>
           </nav>
         </div>
-      )}
+      </div>
     </header>
   );
 }

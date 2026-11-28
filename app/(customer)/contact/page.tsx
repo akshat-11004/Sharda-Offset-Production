@@ -46,7 +46,7 @@ export default async function Contact() {
 
           <div className="mt-12 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
             <div className="space-y-3">
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+              <div data-reveal className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
                 <div className="flex gap-4">
                   <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--background)]">
                     <MapPin size={18} />
@@ -62,7 +62,7 @@ export default async function Contact() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+              <div data-reveal className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
                 <div className="flex gap-4">
                   <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--background)]">
                     <Phone size={18} />
@@ -78,7 +78,7 @@ export default async function Contact() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+              <div data-reveal className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
                 <div className="flex gap-4">
                   <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--background)]">
                     <Mail size={18} />
@@ -94,7 +94,7 @@ export default async function Contact() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+              <div data-reveal className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
                 <div className="flex gap-4">
                   <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--background)]">
                     <Clock3 size={18} />

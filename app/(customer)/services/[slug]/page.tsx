@@ -4,6 +4,8 @@ import { ArrowRight, MessageCircle } from "lucide-react";
 // import { Navbar } from '@/components/customer/Navbar';
 import { SampleCard } from "@/components/customer/SampleCard";
 import { EnquiryCta } from "@/components/customer/EnquiryCta";
+import { GlowingEffect } from "@/components/customer/interactions/GlowingEffect";
+import { MagneticButton } from "@/components/customer/interactions/MagneticButton";
 // import { WhatsAppFab } from '@/components/customer/WhatsAppFab';
 import { business, services } from "@/lib-data";
 import { prisma } from "@/lib/prisma";
@@ -72,17 +74,18 @@ export default async function ServicePage({
                   href={`https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(msg)}`}
                   className="focus-ring inline-flex items-center gap-2 rounded-full bg-[var(--maroon)] px-5 py-3 font-semibold text-white"
                 >
-                  <MessageCircle size={17} /> Enquire on WhatsApp
+                  <MagneticButton><MessageCircle size={17} /> Enquire on WhatsApp</MagneticButton>
                 </TrackedAnchor>
                 <Link
                   href="/contact"
                   className="focus-ring inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-5 py-3 font-semibold"
                 >
-                  Send enquiry <ArrowRight size={16} />
+                  <MagneticButton>Send enquiry <ArrowRight size={16} /></MagneticButton>
                 </Link>
               </div>
             </div>
-            <div className={`service-hero service-${service.accent}`}>
+            <div data-reveal className={`service-feature service-hero service-${service.accent}`}>
+              <GlowingEffect />
               <span>{settings.businessName.toUpperCase()}</span>
               <strong>{service.name}</strong>
               <small>Design • Printing • Process</small>
@@ -91,7 +94,7 @@ export default async function ServicePage({
         </section>
         <section className="bg-[var(--surface)] py-20">
           <div className="container-shell">
-            <div className="flex items-end justify-between gap-5">
+            <div data-reveal className="flex items-end justify-between gap-5">
               <div>
                 <p className="eyebrow">Samples</p>
                 <h2 className="display mt-3 text-4xl">See related work.</h2>
@@ -121,7 +124,7 @@ export default async function ServicePage({
             )}
           </div>
         </section>
-        <EnquiryCta />
+        <EnquiryCta whatsapp={settings.whatsapp} />
       </main>
       {/* <WhatsAppFab /> */}
     </>

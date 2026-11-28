@@ -2,6 +2,8 @@ import { PageViewTracker } from "@/components/customer/PageViewTracker";
 import Navbar from "@/components/customer/Navbar";
 import { WhatsAppFab } from "@/components/customer/WhatsAppFab";
 import { getSiteSettings } from "@/lib/site-settings";
+import { CustomerMotion } from "@/components/customer/motion/CustomerMotion";
+import "./interactions.css";
 
 export default async function CustomerLayout({
   children,
@@ -11,7 +13,7 @@ export default async function CustomerLayout({
   const settings = await getSiteSettings();
 
   return (
-    <>
+    <CustomerMotion>
       <PageViewTracker />
       <Navbar
         businessName={settings.businessName}
@@ -22,16 +24,15 @@ export default async function CustomerLayout({
           "Hello, I would like to enquire about printing."
         }
         phonePrimary={settings.phonePrimary}
-      />
-      {children}
-      <WhatsAppFab
-        businessName={settings.businessName}
-        whatsapp={settings.whatsapp}
-        whatsappMessage={
-          settings.whatsappMessage ||
-          "Hello, I would like to enquire about printing."
+        quickChat={
+          <WhatsAppFab
+            businessName={settings.businessName}
+            whatsapp={settings.whatsapp}
+            whatsappMessage={settings.whatsappMessage || "Hello, I would like to enquire about printing."}
+          />
         }
       />
-    </>
+      <div className="customer-page">{children}</div>
+    </CustomerMotion>
   );
 }

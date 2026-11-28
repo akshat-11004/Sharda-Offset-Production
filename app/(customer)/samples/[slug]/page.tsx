@@ -10,6 +10,7 @@ import { SampleViewTracker } from "@/components/customer/SampleViewTracker";
 import { TrackedAnchor } from "@/components/customer/TrackedAnchor";
 import { getSiteSettings } from "@/lib/site-settings";
 import { SampleImageGallery } from "@/components/customer/SampleImageGallery";
+import { MagneticButton } from "@/components/customer/interactions/MagneticButton";
 
 export const dynamic = "force-dynamic";
 const settings = await getSiteSettings();
@@ -64,13 +65,13 @@ export default async function SampleDetail({
               <ArrowLeft size={16} /> Back to samples
             </Link>
             <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
-              <SampleImageGallery images={sample.images} title={sample.title} />
+              <SampleImageGallery images={sample.images} title={sample.title} sampleId={sample.id} />
               <div>
                 <p className="eyebrow">
                   {sample.category.name}
                   {sample.isFeatured ? " · Featured" : ""}
                 </p>
-                <h1 className="display mt-3 text-5xl md:text-6xl">
+                <h1 data-reveal className="display mt-3 text-5xl md:text-6xl">
                   {sample.title}
                 </h1>
                 <p className="mt-5 text-lg leading-8 text-[var(--muted)]">
@@ -104,7 +105,7 @@ export default async function SampleDetail({
                     href={`https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(msg)}`}
                     className="focus-ring inline-flex items-center gap-2 rounded-full bg-[var(--maroon)] px-5 py-3 font-semibold text-white"
                   >
-                    <MessageCircle size={17} /> Request similar design
+                    <MagneticButton><MessageCircle size={17} /> Request similar design</MagneticButton>
                   </TrackedAnchor>
                   <TrackedAnchor
                     event="phone_click"
@@ -125,7 +126,7 @@ export default async function SampleDetail({
         {related.length > 0 && (
           <section className="border-t border-[var(--border)] bg-[var(--surface)] py-20">
             <div className="container-shell">
-              <p className="eyebrow">More like this</p>
+              <p data-reveal className="eyebrow">More like this</p>
               <h2 className="display mt-3 text-4xl">Related samples.</h2>
               <div className="mt-8 grid gap-5 md:grid-cols-3">
                 {related.map((item) => (
