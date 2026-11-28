@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { requireOwnerApi } from "@/lib/auth/require-owner-api";
 
 const sampleSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -23,6 +24,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!(await requireOwnerApi())) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     const { id } = await params;
     const body = sampleSchema.parse(await request.json());
 
@@ -102,10 +106,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!(await requireOwnerApi())) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     const { id } = await params;
 
     await prisma.sample.delete({

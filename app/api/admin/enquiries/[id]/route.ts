@@ -39,6 +39,8 @@ const schema = z.object({
   ]),
 });
 
+const statusOnlySchema = schema.pick({ status: true }).strict();
+
 type Params = {
   params: Promise<{
     id: string;
@@ -57,7 +59,8 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const { id } = await params;
-    const body = schema.parse(await request.json());
+    const payload: unknown = await request.json();
+    const statusOnly = statusOnlySchema.safeParse(payload);
 
     const existing = await prisma.enquiry.findUnique({
       where: { id },
@@ -72,6 +75,19 @@ export async function PATCH(request: Request, { params }: Params) {
         { status: 404 }
       );
     }
+
+    if (statusOnly.success) {
+      const enquiry = await prisma.enquiry.update({
+        where: { id },
+        data: statusOnly.data,
+        include: { service: true, sample: true },
+      });
+      revalidatePath("/admin");
+      revalidatePath("/admin/enquiries");
+      return NextResponse.json({ ok: true, enquiry });
+    }
+
+    const body = schema.parse(payload);
 
     if (body.serviceId) {
       const service = await prisma.service.findUnique({

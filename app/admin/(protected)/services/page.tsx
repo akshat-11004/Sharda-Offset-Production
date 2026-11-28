@@ -1,84 +1,38 @@
+
 import Link from "next/link";
+import { Pencil, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { requireOwner } from "@/lib/auth/require-owner";
+import { Badge, EmptyState, PageHeader } from "@/components/admin/AdminUI";
 
 export default async function AdminServicesPage() {
-  const services = await prisma.service.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
-  });
+  await requireOwner();
+  const services = await prisma.service.findMany({ orderBy: [{ displayOrder: "asc" }, { name: "asc" }] });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm text-[#6e665f]">Website content</p>
-
-          <h1 className="mt-1 text-3xl font-semibold text-[#272321]">
-            Services
-          </h1>
-
-          <p className="mt-2 text-sm text-[#6e665f]">
-            Manage the printing services shown on your website.
-          </p>
-        </div>
-
-        <Link
-          href="/admin/services/new"
-          className="inline-flex items-center justify-center rounded-xl bg-[#7d2635] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#67202d]"
-        >
-          Add service
-        </Link>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-[#e8dfd5] bg-white shadow-sm">
-        <div className="divide-y divide-[#eee6dd]">
-          {services.length === 0 ? (
-            <div className="p-6 text-sm text-[#6e665f]">No services found.</div>
-          ) : (
-            services.map((service) => (
-              <div
-                key={service.id}
-                className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold text-[#272321]">
-                      {service.name}
-                    </h2>
-
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        service.isActive
-                          ? "bg-green-50 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {service.isActive ? "Active" : "Inactive"}
-                    </span>
+    <div className="ad-page">
+      <PageHeader title="Services" description="Manage service details, website visibility and display order." actions={
+        <Link href="/admin/services/new" className="ad-button ad-primary"><Plus aria-hidden="true" /> Add service</Link>
+      } />
+      <section className="ad-card" aria-label="Service list">
+        {services.length ? (
+          <ul className="ad-list">
+            {services.map((service) => (
+              <li key={service.id} className="ad-pad grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <div>
+                  <div className="ad-actions">
+                    <h2 className="ad-section-title">{service.name}</h2>
+                    <Badge tone={service.isActive ? "active" : undefined}>{service.isActive ? "Active" : "Inactive"}</Badge>
                   </div>
-
-                  <p className="mt-1 text-xs text-[#8a8179]">
-                    /services/{service.slug} · Order {service.displayOrder}
-                  </p>
-
-                  <p className="mt-2 line-clamp-2 text-sm text-[#6e665f]">
-                    {service.description}
-                  </p>
+                  <p className="ad-muted mt-1 text-xs">/services/{service.slug} · Order {service.displayOrder}</p>
+                  {service.description && <p className="ad-muted mt-2 line-clamp-2 text-sm">{service.description}</p>}
                 </div>
-
-                <Link
-                  href={`/admin/services/${service.id}`}
-                  className="shrink-0 rounded-xl border border-[#dcd2c7] px-4 py-2.5 text-center text-sm font-medium text-[#403a35] hover:bg-[#f6f1e9]"
-                >
-                  Edit
-                </Link>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+                <div><Link href={`/admin/services/${service.id}`} className="ad-button" aria-label={`Edit ${service.name}`}><Pencil aria-hidden="true" /> Edit</Link></div>
+              </li>
+            ))}
+          </ul>
+        ) : <EmptyState>No services yet. Add a service to start your list.</EmptyState>}
+      </section>
     </div>
   );
 }

@@ -1,91 +1,95 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  BriefcaseBusiness,
-  ImageIcon,
-  Inbox,
-  LayoutDashboard,
-  LogOut,
-  Settings,
-  Store,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, BriefcaseBusiness, Folders, Images, Inbox, LayoutDashboard, LogOut, Menu, Settings, X } from "lucide-react";
+import { Brand, Feedback } from "./AdminUI";
 
 const items = [
-  ["Admin Home", "/admin", LayoutDashboard],
+  ["Overview", "/admin", LayoutDashboard],
   ["Enquiries", "/admin/enquiries", Inbox],
-  ["Samples", "/admin/samples", ImageIcon],
-  ["Categories", "/admin/categories", ImageIcon],
+  ["Samples", "/admin/samples", Images],
+  ["Categories", "/admin/categories", Folders],
   ["Services", "/admin/services", BriefcaseBusiness],
   ["Settings", "/admin/settings", Settings],
 ] as const;
 
-export default function AdminNavigation() {
+export default function AdminNavigation({ owner }: { owner: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const current = items.find(([, href]) => href === pathname || (href !== "/admin" && pathname.startsWith(href + "/")));
+
+  useEffect(() => {
+    dialog.current?.close();
+  }, [pathname]);
+
+  useEffect(() => {
+    const desktop = matchMedia("(min-width: 960px)");
+    const closeOnDesktop = () => { if (desktop.matches) dialog.current?.close(); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   async function logout() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
     try {
-      await fetch("/api/admin/logout", {
-        method: "POST",
-        cache: "no-store",
-      });
-    } finally {
+      const response = await fetch("/api/admin/logout", { method: "POST", cache: "no-store" });
+      if (!response.ok) throw new Error();
+      dialog.current?.close();
       router.replace("/");
       router.refresh();
+    } catch {
+      setError("Could not sign out. Please try again.");
+      setBusy(false);
     }
   }
 
-  return (
-    <aside className="w-full shrink-0 border-b border-black/10 bg-white md:min-h-screen md:w-64 md:border-b-0 md:border-r">
-      <div className="flex items-center justify-between border-b border-black/10 p-5">
-        <Link href="/admin" className="flex items-center gap-2 font-semibold">
-          <Store className="h-5 w-5" />
-          Sharda Offset
-        </Link>
-      </div>
-
-      <nav className="grid gap-1 p-3 sm:grid-cols-2 md:block">
-        {items.map(([label, href, Icon]) => {
-          const active =
-            href === "/admin" ? pathname === href : pathname.startsWith(href);
-
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${
-                active
-                  ? "bg-[#7a1f2b] text-white"
-                  : "text-[#403a35] hover:bg-[#f6f1e9]"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
+  function navigation(mobile = false) {
+    return (
+      <div className="ad-nav-inner">
+        <div className="flex items-center justify-between gap-2 border-b border-[var(--ad-line)] px-4 py-3">
+          <Link href="/admin" onClick={() => dialog.current?.close()}><Brand /></Link>
+          {mobile && <button type="button" className="ad-button ad-icon-button" aria-label="Close menu" autoFocus onClick={() => dialog.current?.close()}><X aria-hidden="true" /></button>}
+        </div>
+        <nav aria-label="Owner navigation" className="grid gap-1 p-3">
+          {items.map(([label, href, Icon]) => (
+            <Link key={href} href={href} className="ad-nav-link" aria-current={current?.[1] === href ? pathname === href ? "page" : "location" : undefined}
+              onClick={() => { if (pathname === href) dialog.current?.close(); }}>
+              <Icon aria-hidden="true" />{label}
             </Link>
-          );
-        })}
-      </nav>
-
-      <div className="grid gap-1 border-t border-black/10 p-3">
-        <Link
-          href="/"
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f6f1e9]"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          View website
-        </Link>
-
-        <button
-          onClick={logout}
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
-        >
-          <LogOut className="h-4 w-4" />
-          Logout
-        </button>
+          ))}
+        </nav>
+        <div className="mt-auto space-y-1 border-t border-[var(--ad-line)] p-3">
+          <p className="px-2 text-sm font-bold">{owner}</p>
+          <p className="ad-muted px-2 pb-2 text-xs">Owner account</p>
+          <Link href="/" className="ad-nav-link"><ArrowUpRight aria-hidden="true" /> View website</Link>
+          <button type="button" onClick={logout} disabled={busy} className="ad-nav-link disabled:opacity-55"><LogOut aria-hidden="true" />{busy ? "Signing out…" : "Sign out"}</button>
+          {error && <Feedback tone="error">{error}</Feedback>}
+        </div>
       </div>
-    </aside>
+    );
+  }
+
+  return (
+    <>
+      <aside className="ad-sidebar">{navigation()}</aside>
+      <header className="ad-mobile-header">
+        <div className="min-w-0">
+          <p className="ad-muted text-xs font-bold">Sharda Offset</p>
+          <p className="text-sm font-extrabold">{current?.[0] ?? "Owner workspace"}</p>
+        </div>
+        <button type="button" className="ad-button ad-icon-button" aria-haspopup="dialog" aria-controls="owner-menu" aria-label="Open menu" onClick={() => dialog.current?.showModal()}><Menu aria-hidden="true" /></button>
+      </header>
+      <dialog id="owner-menu" ref={dialog} className="ad-drawer" aria-label="Owner menu" onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
+        {navigation(true)}
+      </dialog>
+    </>
   );
 }

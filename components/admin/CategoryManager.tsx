@@ -1,291 +1,120 @@
+
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition, type FormEvent } from "react";
+import { Badge, EmptyState, Feedback, FormSection } from "./AdminUI";
+import ConfirmAction from "./ConfirmAction";
 
-type Category = {
-  id: string;
-  name: string;
-  slug: string;
-  _count: {
-    samples: number;
-  };
-};
+type Category = { id: string; name: string; slug: string; _count: { samples: number } };
 
 export default function CategoryManager({ initial }: { initial: Category[] }) {
   const router = useRouter();
-
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-
+  const [pending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
-  const [editingSlug, setEditingSlug] = useState("");
+  const [saving, setSaving] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ area: string; text: string; error?: boolean }>();
+  const busy = saving !== null || pending;
 
-  const [saving, setSaving] = useState(false);
-
-  function startEdit(category: Category) {
-    setEditingId(category.id);
-    setEditingName(category.name);
-    setEditingSlug(category.slug);
-  }
-
-  function cancelEdit() {
+  function closeEdit(id: string) {
     setEditingId(null);
-    setEditingName("");
-    setEditingSlug("");
+    requestAnimationFrame(() => document.getElementById(`edit-category-${id}`)?.focus());
   }
 
-  async function add(event: React.FormEvent) {
-    event.preventDefault();
-
-    setSaving(true);
+  async function mutate(method: "POST" | "PATCH" | "DELETE", category?: Category, form?: HTMLFormElement) {
+    if (busy) return;
+    const area = category?.id ?? "add";
+    setSaving(area);
+    setFeedback(undefined);
 
     try {
-      const response = await fetch("/api/admin/categories", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          slug,
+      const response = await fetch(`/api/admin/categories${category ? `/${category.id}` : ""}`, {
+        method,
+        ...(form && {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.fromEntries(new FormData(form))),
         }),
       });
-
       const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Unable to create category.");
-      }
-
-      setName("");
-      setSlug("");
-
-      router.refresh();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not save the category.");
+      if (method === "POST") form?.reset();
+      if (method === "PATCH" && category) closeEdit(category.id);
+      const messages = { POST: "Category added.", PATCH: "Category updated.", DELETE: "Category deleted." };
+      setFeedback({ area: method === "POST" ? "add" : "list", text: messages[method] });
+      startTransition(() => router.refresh());
     } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Unable to create category.",
-      );
+      setFeedback({ area, text: error instanceof Error ? error.message : "Could not update the category.", error: true });
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   }
 
-  async function updateCategory(event: React.FormEvent) {
+  function submit(event: FormEvent<HTMLFormElement>, category?: Category) {
     event.preventDefault();
-
-    if (!editingId) return;
-
-    setSaving(true);
-
-    try {
-      const response = await fetch(`/api/admin/categories/${editingId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: editingName,
-          slug: editingSlug,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Unable to update category.");
-      }
-
-      cancelEdit();
-      router.refresh();
-    } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Unable to update category.",
-      );
-    } finally {
-      setSaving(false);
-    }
+    void mutate(category ? "PATCH" : "POST", category, event.currentTarget);
   }
 
-  async function deleteCategory(category: Category) {
-    if (category._count.samples > 0) {
-      alert("This category cannot be deleted because samples are using it.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Delete category "${category.name}"? This cannot be undone.`,
-    );
-
-    if (!confirmed) return;
-
-    setSaving(true);
-
-    try {
-      const response = await fetch(`/api/admin/categories/${category.id}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Unable to delete category.");
-      }
-
-      router.refresh();
-    } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Unable to delete category.",
-      );
-    } finally {
-      setSaving(false);
-    }
+  function message(area: string) {
+    return feedback?.area === area && <Feedback tone={feedback.error ? "error" : "success"}>{feedback.text}</Feedback>;
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-      {/* Add category */}
-      <form
-        onSubmit={add}
-        className="space-y-4 rounded-2xl border border-black/10 bg-white p-5 shadow-sm"
-      >
-        <div>
-          <h2 className="font-semibold">Add category</h2>
-          <p className="mt-1 text-sm text-[#6e665f]">
-            Create a new portfolio category.
-          </p>
-        </div>
-
-        <input
-          required
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Wedding Cards"
-          className="w-full rounded-xl border border-black/10 px-3 py-2.5 outline-none focus:border-[#7a1f2b]"
-        />
-
-        <input
-          required
-          value={slug}
-          onChange={(event) => setSlug(event.target.value)}
-          placeholder="wedding-cards"
-          className="w-full rounded-xl border border-black/10 px-3 py-2.5 outline-none focus:border-[#7a1f2b]"
-        />
-
-        <p className="text-xs text-[#6e665f]">
-          Use lowercase letters, numbers and hyphens in the slug.
-        </p>
-
-        <button
-          disabled={saving}
-          className="rounded-xl bg-[#7a1f2b] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Add category"}
-        </button>
+    <div className="grid items-start gap-4 xl:grid-cols-[minmax(250px,320px)_minmax(0,1fr)]">
+      <form onSubmit={submit}>
+        <FormSection title="Add category">
+          <CategoryFields />
+          {message("add")}
+          <div><button type="submit" className="ad-button ad-primary" disabled={busy}>{saving === "add" ? "Adding…" : "Add category"}</button></div>
+        </FormSection>
       </form>
-
-      {/* Categories */}
-      <div className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-        <div className="border-b border-black/10 px-5 py-4">
-          <h2 className="font-semibold">Categories</h2>
-          <p className="mt-1 text-sm text-[#6e665f]">
-            Edit or remove portfolio categories.
-          </p>
+      <section className="ad-card">
+        <div className="ad-pad space-y-3">
+          <h2 className="ad-section-title">Portfolio categories <span className="ad-muted text-sm">({initial.length})</span></h2>
+          {message("list")}
         </div>
-
-        <div className="divide-y divide-black/10">
-          {initial.length === 0 ? (
-            <p className="p-6 text-sm text-[#6e665f]">No categories found.</p>
-          ) : (
-            initial.map((category) => {
-              const editing = editingId === category.id;
-
-              return (
-                <div key={category.id} className="p-5">
-                  {editing ? (
-                    <form onSubmit={updateCategory} className="space-y-4">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <input
-                          required
-                          value={editingName}
-                          onChange={(event) =>
-                            setEditingName(event.target.value)
-                          }
-                          className="w-full rounded-xl border border-black/10 px-3 py-2.5"
-                        />
-
-                        <input
-                          required
-                          value={editingSlug}
-                          onChange={(event) =>
-                            setEditingSlug(event.target.value)
-                          }
-                          className="w-full rounded-xl border border-black/10 px-3 py-2.5"
-                        />
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="submit"
-                          disabled={saving}
-                          className="rounded-xl bg-[#7a1f2b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        >
-                          Save changes
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="font-semibold">{category.name}</p>
-
-                        <p className="mt-1 text-xs text-[#6e665f]">
-                          /{category.slug}
-                        </p>
-
-                        <span className="mt-2 inline-block rounded-full bg-[#f6f1e9] px-3 py-1 text-xs font-semibold">
-                          {category._count.samples} samples
-                        </span>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startEdit(category)}
-                          className="rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold hover:bg-[#f6f1e9]"
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          onClick={() => deleteCategory(category)}
-                          disabled={saving || category._count.samples > 0}
-                          title={
-                            category._count.samples > 0
-                              ? "Move or delete the samples first."
-                              : "Delete category"
-                          }
-                          className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Delete
-                        </button>
-                      </div>
+        {initial.length ? (
+          <ul className="ad-list border-t border-[var(--ad-line)]">
+            {initial.map((category) => (
+              <li key={category.id} className="ad-pad space-y-3">
+                {editingId === category.id ? (
+                  <form onSubmit={(event) => submit(event, category)} className="grid gap-3">
+                    <CategoryFields category={category} />
+                    <div className="ad-actions">
+                      <button type="button" className="ad-button" disabled={busy} onClick={() => { closeEdit(category.id); setFeedback(undefined); }}>Cancel</button>
+                      <button type="submit" className="ad-button ad-primary" disabled={busy}>{saving === category.id ? "Saving…" : "Save changes"}</button>
                     </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+                  </form>
+                ) : (
+                  <div className="ad-section-head">
+                    <div className="min-w-0">
+                      <h3 className="font-bold">{category.name}</h3>
+                      <p className="ad-muted my-1 text-sm">/{category.slug}</p>
+                      <Badge>{category._count.samples} {category._count.samples === 1 ? "sample" : "samples"}</Badge>
+                    </div>
+                    <div>
+                      <div className="ad-actions">
+                        <button id={`edit-category-${category.id}`} type="button" className="ad-button" aria-label={`Edit ${category.name}`} disabled={busy} onClick={() => { setEditingId(category.id); setFeedback(undefined); }}>Edit</button>
+                        <ConfirmAction label="Delete" accessibleLabel={`Delete ${category.name}`} title={`Delete “${category.name}”?`} disabled={busy || category._count.samples > 0} onConfirm={() => mutate("DELETE", category)} />
+                      </div>
+                      {category._count.samples > 0 && <p className="ad-muted mt-1 text-xs">Move linked samples before deleting.</p>}
+                    </div>
+                  </div>
+                )}
+                {message(category.id)}
+              </li>
+            ))}
+          </ul>
+        ) : <EmptyState>No categories yet. Add one to organize your samples.</EmptyState>}
+      </section>
     </div>
+  );
+}
+
+function CategoryFields({ category }: { category?: Category }) {
+  return (
+    <>
+      <label className="ad-field">Category name<input className="ad-input" required name="name" autoFocus={Boolean(category)} defaultValue={category?.name} placeholder="Wedding Cards" /></label>
+      <label className="ad-field">URL slug<input className="ad-input" required name="slug" defaultValue={category?.slug} placeholder="wedding-cards" spellCheck={false} /><small>Use lowercase letters, numbers and hyphens.</small></label>
+    </>
   );
 }
