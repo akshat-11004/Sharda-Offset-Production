@@ -23,7 +23,7 @@ export function Hero({
       <div className="container-shell relative z-10 flex min-h-[calc(100svh-4rem)] flex-col justify-between py-7 sm:min-h-[calc(100svh-4.5rem)] sm:py-10 lg:min-h-[calc(100dvh-4.5rem)] lg:py-12">
         <div className="flex items-center justify-between gap-3">
           <p className="eyebrow rounded-full border border-[rgba(109,36,48,.16)] bg-white/60 px-3 py-2 backdrop-blur-sm">
-            Print · Design · Perfection
+           Design · Printing · Process
           </p>
           <p className="hidden text-xs font-semibold uppercase tracking-[.16em] text-[var(--muted)] sm:block">
             Nadiad, Gujarat
